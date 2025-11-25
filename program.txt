@@ -1,0 +1,8 @@
+/* */
+int: a, b
+float: result
+a assign 10
+b assign 20
+result assign a + b
+displ result
+end
