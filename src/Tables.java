@@ -5,7 +5,7 @@ public class Tables {
     public static final String[] tw = {
             "int", "float", "bool", "do", "else", "false", "for",
             "if", "then", "true", "while", "end", "val", "displ",
-            "enter", "next"
+            "enter", "next","not"
     };
 
     // Таблица ограничителей (исправлена согласно вашим данным)

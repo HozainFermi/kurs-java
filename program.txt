@@ -1,59 +1,6 @@
-int: x, y, i, sum, counter
-float: price, total, average
-bool: isvalid, found
-
-x assign 15
-y assign 25
-price assign 99.99
-total assign price * 2.5
-isvalid assign true
-found assign false
-
-/* Проверка условий */
-if x < y then
-  displ x, 1  /* выводим x и число 1 чтобы показать что x меньше */
-  average assign (x + y) / 2
-else
-  displ x, 0  /* выводим x и число 0 чтобы показать что x не меньше */
-  average assign 0.0
-end
-
-/* Цикл for */
+int: i, sum
 sum assign 0
-for i assign 1 val 10 do
-  sum assign sum + i
-  if sum > 20 then
-    found assign true
-    displ 100, sum  /* код 100 и сумма */
-  end
-next
-
-/* Цикл while */  
-counter assign 5
-while counter > 0 do
-  displ 200, counter  /* код 200 и счетчик */
-  counter assign counter - 1
-  if counter = 2 then
-    displ 201  /* код 201 - почти готово */
-  end
-next
-
-/* Ввод и сложные выражения */
-enter x
-enter y
-isvalid assign (x > 0) and (y > 0) and not found
-
-if isvalid then
-  total assign x * price + y * price * 0.9
-  displ 300, total  /* код 300 и общая стоимость */
-else
-  displ 400  /* код 400 - неверные данные */
-end
-
-/* Составной оператор */
-[
-  displ 500, x  /* код 500 и x */
-  displ 501, y  /* код 501 и y */  
-  displ 502, x + y  /* код 502 и сумма */
-]
+for i assign 1 val 5 do sum assign sum + i
+displ sum
+int: j,som
 end
