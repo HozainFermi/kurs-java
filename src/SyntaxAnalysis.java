@@ -21,7 +21,6 @@ public class SyntaxAnalysis {
     private boolean stop = false;
 
     public void analysis(){
-        // Инициализация таблицы операций (адаптирована под ваш язык)
         initializeTOP();
 
         Main.ui.log("Запущен синтаксический анализ");
@@ -29,35 +28,38 @@ public class SyntaxAnalysis {
 
         gl();
 
-        // Программа начинается с комментария /*
-        if(lex.EQ("/*")) {
-            gl();
-        } else {
-            er("Синтаксическая ошибка: не найден начальный комментарий '/*'");
-        }
+        // Основное тело программы - последовательность описаний и операторов
+        boolean firstElement = true;
 
-        // Основное тело программы
-        while(!lex.EQ("*/") && !stop) {
-            if(description() || operator()) {
-                if(lex.EQ(":") || lex.EQ("\n")) {
-                    gl();
-                } else if(!lex.EQ("*/")) {
-                    er("Синтаксическая ошибка: ожидался ':' или перевод строки после оператора");
+        while (!lex.EQ("end") && !stop) {
+            if (firstElement) {
+                // Первый элемент программы
+                if (!(description() || operator())) {
+                    er("Синтаксическая ошибка: программа должна начинаться с описания или оператора");
+                    return;
                 }
-            } else if(!lex.EQ("*/")) {
-                er("Синтаксическая ошибка: ожидалось описание или оператор");
+                firstElement = false;
+            } else {
+                // После первого элемента должен быть : или \n
+                if (lex.EQ(":") || lex.EQ("\n")) {
+                    gl();
+
+                    // Следующий элемент (описание или оператор)
+                    if (!lex.EQ("end") && !(description() || operator())) {
+                        er("Синтаксическая ошибка: ожидалось описание или оператор после ':' или перевода строки");
+                    }
+                } else if (!lex.EQ("end")) {
+                    er("Синтаксическая ошибка: ожидался ':' или перевод строки между элементами программы");
+                    break;
+                }
             }
         }
 
-        if(!lex.EQ("*/")) {
-            er("Синтаксическая ошибка: не найден конечный комментарий '*/'");
-        }
-
-        if(!lex.EQ("end")) {
+        if (!lex.EQ("end")) {
             er("Синтаксическая ошибка: не найдено ключевое слово 'end'");
         }
 
-        if(stop) return;
+        if (stop) return;
 
         Main.ui.log("Синтаксический анализ успешно завершен");
         Main.ui.log("Семантический анализ успешно завершен");
@@ -165,6 +167,7 @@ public class SyntaxAnalysis {
         }
         gl();
 
+        // В составном операторе может быть один или несколько операторов
         if(!operator()) {
             er("Синтаксическая ошибка: ожидался оператор в составном операторе");
             return false;
@@ -442,12 +445,15 @@ public class SyntaxAnalysis {
             gl();
             return true;
         } else if(number()) {
+            opStack.push(getNumberType());
             gl();
             return true;
         } else if(booleanConstant()) {
+            opStack.push("bool");
             gl();
             return true;
         } else if(unaryOperation()) {
+            opStack.push("not");
             gl();
             if(!multiplier()) {
                 er("Синтаксическая ошибка: ожидался множитель после унарной операции");
@@ -483,6 +489,15 @@ public class SyntaxAnalysis {
         return lex.NUM();
     }
 
+    private String getNumberType() {
+        // Определяем тип числа по его представлению
+        String numStr = Tables.tn.get(lex.getIndex());
+        if (numStr.contains(".") || numStr.toLowerCase().contains("e")) {
+            return "float";
+        }
+        return "int";
+    }
+
     private boolean booleanConstant() {
         return lex.EQ("true") || lex.EQ("false");
     }
@@ -507,26 +522,32 @@ public class SyntaxAnalysis {
     private void gl() {
         try {
             int c;
-            c = bufferedInputStream.read();
-
             StringBuilder table = new StringBuilder();
             StringBuilder index = new StringBuilder();
-            if(c == -1) {
-                return;
+
+            // Пропускаем пробелы между лексемами
+            while ((c = bufferedInputStream.read()) != -1 && Character.isWhitespace(c) && c != '\n') {
+                // Пропускаем пробелы
             }
+
+            if (c == -1) return;
+
             if ((char) c == '[') {
                 c = bufferedInputStream.read();
-                while ((char) c != ',') {
+                while (c != -1 && (char) c != ',') {
                     table.append((char) c);
                     c = bufferedInputStream.read();
                 }
                 c = bufferedInputStream.read();
-                while ((char) c != ']') {
+                while (c != -1 && (char) c != ']') {
                     index.append((char) c);
                     c = bufferedInputStream.read();
                 }
+
+                if (table.length() > 0 && index.length() > 0) {
+                    lex.set(Integer.parseInt(table.toString()), Integer.parseInt(index.toString()));
+                }
             }
-            lex.set(Integer.parseInt(table.toString()), Integer.parseInt(index.toString()));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -547,7 +568,8 @@ public class SyntaxAnalysis {
     private String getIdentifierType() {
         int index = lex.getIndex();
         if(index >= 0 && index < ti.size()) {
-            return ti.get(index).getType();
+            Identifier id = ti.get(index);
+            return id.getType();
         }
         return "";
     }
@@ -578,6 +600,7 @@ public class SyntaxAnalysis {
         if(lex.EQ("and")) return "and";
         if(lex.EQ("or")) return "or";
         if(lex.EQ("not")) return "not";
+        if(lex.EQ("assign")) return "assign";
         return "";
     }
 
@@ -599,6 +622,13 @@ public class SyntaxAnalysis {
 
     private void checkUnaryOperation() {
         String type = opStack.pop();
+        String op = opStack.pop();
+
+        if(!op.equals("not")) {
+            er("Семантическая ошибка: ожидалась унарная операция 'not'");
+            return;
+        }
+
         if(!type.equals("bool")) {
             er("Семантическая ошибка: унарная операция 'not' применяется только к логическому типу");
         }

@@ -1,7 +1,4 @@
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -15,8 +12,9 @@ public class LexicalAnalysis {
     private boolean endOfFile = false;
     private final StringBuilder s = new StringBuilder();
     private char c;
-    private String state = "H";
     private boolean stop = false;
+    private boolean inComment = false;
+    private int nextChar = -1;
 
     public LexicalAnalysis() {
         Arrays.sort(tw);
@@ -27,7 +25,7 @@ public class LexicalAnalysis {
 
     private void writeInFile(String string) {
         try {
-            writer.write(string);
+            writer.write(string + " ");
             Main.ui.addLexemeInLexemesArea(string);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -51,109 +49,106 @@ public class LexicalAnalysis {
 
         c = gc();
 
-        // Чтение программы начинается с комментария /*
-        if (c == '/') {
-            state = "H";
-            s.append(c);
-            c = gc();
-            if (c == '*') {
-                s.append(c);
-                // Пропускаем начальный комментарий
-                skipComment();
-            } else {
-                er("Ожидался символ '*' после '/' для начала комментария");
-                return;
-            }
-        } else {
-            stop = true;
-            er("Не найден символ начала комментария '/*'");
-        }
+        while (!endOfFile) {
+            if (stop) return;
 
-        while(!endOfFile) {
-            if(stop) return;
-
-            // Комментарии
-            if(c == '/' && !endOfFile) {
-                s.append(c);
+            if (c == ' ' || c == '\t') {
                 c = gc();
-                if(c == '*') {
-                    s.append(c);
-                    skipComment();
+                continue;
+            }
+
+            // Обработка комментариев
+            if (c == '/' && !endOfFile) {
+                int next = peekChar();
+                if (next == '*') {
+                    gc(); // пропускаем '*'
+                    inComment = true;
+                    while (inComment && !endOfFile) {
+                        c = gc();
+                        if (c == '*' && !endOfFile) {
+                            next = peekChar();
+                            if (next == '/') {
+                                gc(); // пропускаем '/'
+                                inComment = false;
+                                c = gc();
+                                break;
+                            }
+                        }
+                    }
                     continue;
                 } else {
-                    // Это оператор деления
-                    state = "L";
+                    s.append(c);
                     writeInFile(search(s));
                     s.delete(0, s.length());
+                    c = gc();
                     continue;
                 }
             }
 
-            // Конец программы
-            else if (state.equals("PROGRAM") && c == '/' && !endOfFile) {
-                s.append(c);
+            if (inComment) {
                 c = gc();
-                if(c == '/') {
-                    s.append(c);
-                    if(s.toString().equals("//")) {
-                        writeInFile(search(s));
-                        break;
-                    }
-                } else {
-                    er("Ожидался символ '/' для конца программы");
-                }
+                continue;
             }
 
-            // Операции отношения
-            else if(c == '<') {
-                state = "<";
-                s.append(c);
-                c = gc();
-                if(c == '=') {
-                    state = "<=";
-                    s.append(c);
-                    writeInFile(search(s));
-                } else if(c == '>') {
-                    state = "<>";
-                    s.append(c);
-                    writeInFile(search(s));
-                } else {
-                    writeInFile(search(s));
-                }
-                s.delete(0, s.length());
-                continue;
-            }
-            else if(c == '>') {
-                state = ">";
-                s.append(c);
-                c = gc();
-                if(c == '=') {
-                    state = ">=";
-                    s.append(c);
-                    writeInFile(search(s));
-                } else {
-                    writeInFile(search(s));
-                }
-                s.delete(0, s.length());
-                continue;
-            }
-            else if(c == '=') {
-                state = "=";
+            if (c == '\n') {
                 s.append(c);
                 writeInFile(search(s));
                 s.delete(0, s.length());
+                c = gc();
+                continue;
+            }
+
+            // Операции отношения
+            if (c == '<') {
+                s.append(c);
+                int next = peekChar();
+                if (next == '=') {
+                    gc();
+                    s.append(c);
+                    writeInFile(search(s));
+                } else if (next == '>') {
+                    gc();
+                    s.append(c);
+                    writeInFile(search(s));
+                } else {
+                    writeInFile(search(s));
+                }
+                s.delete(0, s.length());
+                c = gc();
+                continue;
+            }
+
+            if (c == '>') {
+                s.append(c);
+                int next = peekChar();
+                if (next == '=') {
+                    gc();
+                    s.append(c);
+                    writeInFile(search(s));
+                } else {
+                    writeInFile(search(s));
+                }
+                s.delete(0, s.length());
+                c = gc();
+                continue;
+            }
+
+            if (c == '=') {
+                s.append(c);
+                writeInFile(search(s));
+                s.delete(0, s.length());
+                c = gc();
+                continue;
             }
 
             // Числа
-            else if(Character.isDigit(c)) {
+            if (Character.isDigit(c)) {
                 readNumber();
-                s.delete(0, s.length());
                 continue;
             }
 
             // Идентификаторы и ключевые слова
-            else if(Character.isLetter(c)) {
-                state = "I";
+            if (Character.isLetter(c)) {
                 s.append(c);
                 c = gc();
                 while (Character.isLetterOrDigit(c)) {
@@ -165,183 +160,158 @@ public class LexicalAnalysis {
                 continue;
             }
 
-            // Операторы и разделители
-            else if(isOperatorOrDelimiter(c)) {
-                state = "L";
+            // Одиночные символы
+            if (isDelimiter(c)) {
                 s.append(c);
-
-                // Проверяем многосимвольные операторы
-                if(c == ':' && !endOfFile) {
-                    c = gc();
-                    if(c == '=') {
-                        s.append(c);
-                        writeInFile(search(s));
-                    } else {
-                        writeInFile(search(s));
-                        continue;
-                    }
-                } else {
-                    writeInFile(search(s));
-                }
-
+                writeInFile(search(s));
                 s.delete(0, s.length());
-            }
-
-            // Пробельные символы
-            else if(Character.isWhitespace(c)) {
-                if(c == '\n') {
-                    s.append(c);
-                    writeInFile(search(s));
-                    s.delete(0, s.length());
-                }
                 c = gc();
                 continue;
             }
-            else {
-                er("Неопознанный символ '" + c + "'");
-            }
 
-            c = gc();
-            s.delete(0, s.length());
+            er("Неопознанный символ: '" + c + "'");
+            break;
         }
 
         reader.close();
         writer.close();
 
         Main.ui.log("Лексический анализ успешно завершен");
-        // Вывод таблиц после лексического анализа
         Tables.printTables();
         new SyntaxAnalysis().analysis();
     }
 
-    private void skipComment() throws IOException {
-        while(!endOfFile) {
-            c = gc();
-            if(c == '*' && !endOfFile) {
-                c = gc();
-                if(c == '/') {
-                    break;
-                }
-            }
-        }
-        c = gc(); // читаем следующий символ после комментария
-        state = "PROGRAM";
-    }
-
-    private void readNumber() {
-        state = "NUM";
-        boolean isFloat = false;
-        boolean hasExponent = false;
-
-        while(Character.isDigit(c) || c == '.' || c == 'e' || c == 'E' ||
-                c == '+' || c == '-' || Character.isLetter(c)) {
-
-            if(c == '.') {
-                if(isFloat) {
-                    er("Несколько точек в числе");
-                    return;
-                }
-                isFloat = true;
-            }
-
-            if(c == 'e' || c == 'E') {
-                if(hasExponent) {
-                    er("Несколько экспонент в числе");
-                    return;
-                }
-                hasExponent = true;
-                s.append(c);
-                c = gc();
-
-                if(c == '+' || c == '-') {
-                    s.append(c);
-                    c = gc();
-                }
-                continue;
-            }
-
-            // Проверка систем счисления
-            if(Character.isLetter(c) && c != 'e' && c != 'E') {
-                if(c == 'B' || c == 'b') {
-                    s.append(c);
-                    writeInFile(search(s));
-                    return;
-                } else if(c == 'O' || c == 'o') {
-                    s.append(c);
-                    writeInFile(search(s));
-                    return;
-                } else if(c == 'D' || c == 'd') {
-                    s.append(c);
-                    writeInFile(search(s));
-                    return;
-                } else if(c == 'H' || c == 'h') {
-                    s.append(c);
-                    writeInFile(search(s));
-                    return;
-                }
-            }
-
-            s.append(c);
-            c = gc();
-        }
-
-        writeInFile(search(s));
-    }
-
     private char gc() {
         try {
-            int ch = reader.read();
-            if(ch == -1) {
-                endOfFile = true;
+            if (nextChar != -1) {
+                c = (char) nextChar;
+                nextChar = -1;
+                return c;
             }
-            return (char) ch;
+
+            int ch = reader.read();
+            if (ch == -1) {
+                endOfFile = true;
+                return '\0';
+            }
+            c = (char) ch;
+            return c;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
+
+    private int peekChar() {
+        try {
+            if (nextChar == -1) {
+                nextChar = reader.read();
+            }
+            return nextChar;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void readNumber() {
+        s.setLength(0); // очищаем StringBuilder
+        s.append(c); // добавляем первую цифру
+
+        c = gc(); // читаем следующий символ
+
+        // Читаем число пока идут цифры или допустимые символы
+        while (!endOfFile) {
+            if (Character.isDigit(c)) {
+                s.append(c);
+                c = gc();
+            } else if (c == '.') {
+                s.append(c);
+                c = gc();
+                // После точки должны быть цифры
+                if (!Character.isDigit(c)) {
+                    er("После точки в числе должны быть цифры");
+                    return;
+                }
+                while (Character.isDigit(c)) {
+                    s.append(c);
+                    c = gc();
+                }
+            } else if (c == 'e' || c == 'E') {
+                s.append(c);
+                c = gc();
+                if (c == '+' || c == '-') {
+                    s.append(c);
+                    c = gc();
+                }
+                if (!Character.isDigit(c)) {
+                    er("После экспоненты должны быть цифры");
+                    return;
+                }
+                while (Character.isDigit(c)) {
+                    s.append(c);
+                    c = gc();
+                }
+            } else if (Character.isLetter(c)) {
+                // Суффиксы систем счисления
+                if (c == 'B' || c == 'b' || c == 'O' || c == 'o' ||
+                        c == 'D' || c == 'd' || c == 'H' || c == 'h') {
+                    s.append(c);
+                    writeInFile(search(s));
+                    s.delete(0, s.length());
+                    c = gc();
+                    return;
+                } else {
+                    break; // недопустимый символ
+                }
+            } else {
+                break; // не числовой символ
+            }
+        }
+
+        writeInFile(search(s));
+        s.delete(0, s.length());
+    }
+
     public String search(StringBuilder s) {
         String str = s.toString();
         int table;
         int index = BinarySearch.getLexemeIndex(tw, str);
 
-        if(index == -1) {
+        if (index == -1) {
             index = BinarySearch.getLexemeIndex(tl, str);
-            if(index == -1) {
-                if(str.matches("^[a-zA-Z][a-zA-Z0-9]*$")) {
+            if (index == -1) {
+                if (str.matches("^[a-zA-Z][a-zA-Z0-9]*$")) {
                     table = 4;
                     boolean found = false;
-                    for(int i = 0; i < ti.size(); i++) {
-                        if(str.equals(ti.get(i).getName())) {
+                    for (int i = 0; i < ti.size(); i++) {
+                        if (str.equals(ti.get(i).getName())) {
                             index = i;
                             found = true;
                             break;
                         }
                     }
-                    if(!found) {
+                    if (!found) {
                         ti.add(new Identifier(str));
                         index = ti.size() - 1;
                     }
-                }
-                else if(str.matches("^-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?$") ||
-                        str.matches("^[01]+[Bb]$") ||
-                        str.matches("^[0-7]+[Oo]$") ||
-                        str.matches("^\\d+[Dd]?$") ||
-                        str.matches("^[0-9A-Fa-f]+[Hh]$")) {
+                } else {
                     table = 3;
-                    tn.add(str);
-                    index = tn.size() - 1;
+                    boolean found = false;
+                    for (int i = 0; i < tn.size(); i++) {
+                        if (str.equals(tn.get(i))) {
+                            index = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        tn.add(str);
+                        index = tn.size() - 1;
+                    }
                 }
-                else {
-                    table = 2;
-                    // Добавляем новый разделитель
-                    String[] newTl = Arrays.copyOf(tl, tl.length + 1);
-                    newTl[newTl.length - 1] = str;
-                    index = newTl.length - 1;
-                }
+            } else {
+                table = 2;
             }
-            else table = 2;
-        }
-        else {
+        } else {
             table = 1;
         }
 
@@ -349,14 +319,13 @@ public class LexicalAnalysis {
     }
 
     private void er(String message) {
-        state = "ER";
         Main.ui.log("Лексическая ошибка: " + message);
         stop = true;
     }
 
-    private boolean isOperatorOrDelimiter(char c) {
-        return c == '+' || c == '-' || c == '*' || c == '/' || c == ':' ||
-                c == ',' || c == '[' || c == ']' || c == '(' || c == ')' ||
-                c == '=' || c == '<' || c == '>';
+    private boolean isDelimiter(char c) {
+        return c == '+' || c == '-' || c == '*' || c == '/' || c == '(' ||
+                c == ')' || c == '[' || c == ']' || c == ':' || c == ';' ||
+                c == ',' || c == '=' || c == '<' || c == '>';
     }
 }

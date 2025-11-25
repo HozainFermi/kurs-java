@@ -1,13 +1,19 @@
 import java.util.ArrayList;
 
 public class Tables {
-    // Таблица служебных слов (обновлена под ваш язык)
-    public static final String[] tw = {"true", "false", "if", "then", "else", "end", "for", "val", "do",
-            "while", "next", "enter", "displ", "int", "float", "bool", "not", "or", "and"};
+    // Таблица служебных слов (исправлена согласно вашим данным)
+    public static final String[] tw = {
+            "int", "float", "bool", "do", "else", "false", "for",
+            "if", "then", "true", "while", "end", "val", "displ",
+            "enter", "next"
+    };
 
-    // Таблица ограничителей (обновлена под ваш язык)
-    public static final String[] tl = {"<>", "=", "<", "<=", ">", ">=", "+", "-", "*", "/",
-            ":", ",", "assign", "[", "]", "(", ")", "\n", " "};
+    // Таблица ограничителей (исправлена согласно вашим данным)
+    public static final String[] tl = {
+            "\n", "(", ")", "*", "+", ",", "-", "/", ":", ";",
+            "<", "<=", "<>", "=", ">", ">=", "[", "]", "assign",
+            "or", "and"
+    };
 
     // Таблица чисел
     public static final ArrayList<String> tn = new ArrayList<>();
