@@ -132,7 +132,7 @@ public class SyntaxAnalysis {
         stack.add(lex.getIndex());
         gl();
 
-        // ИСПРАВЛЕНИЕ: проверяем запятую только если после нее есть идентификатор
+        // проверяем запятую только если после нее есть идентификатор
         while(lex.EQ(",")) {
             gl(); // читаем запятую
             if(!identifier()) {
@@ -578,6 +578,10 @@ public class SyntaxAnalysis {
         int index = lex.getIndex();
         if(index >= 0 && index < ti.size()) {
             Identifier id = ti.get(index);
+            if (id.getType() == null) {
+                er("Семантическая ошибка: переменная '" + id.getName() + "' не имеет типа");
+                return "";
+            }
             return id.getType();
         }
         return "";
@@ -645,6 +649,14 @@ public class SyntaxAnalysis {
     }
 
     private void checkAssignmentTypes(String leftType, String rightType) {
+        if (leftType == null || leftType.isEmpty()) {
+            er("Семантическая ошибка: левая часть присваивания не имеет типа");
+            return;
+        }
+        if (rightType == null || rightType.isEmpty()) {
+            er("Семантическая ошибка: правая часть присваивания не имеет типа");
+            return;
+        }
         if(leftType.equals("int") && rightType.equals("int")) return;
         if(leftType.equals("float") && (rightType.equals("float") || rightType.equals("int"))) return;
         if(leftType.equals("bool") && rightType.equals("bool")) return;

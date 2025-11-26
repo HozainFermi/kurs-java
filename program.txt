@@ -1,6 +1,14 @@
-int: i, sum
-sum assign 0
-for i assign 1 val 5 do sum assign sum + i
-displ sum
-int: j,som
+int: x, y, z
+float: a, b
+bool: result
+end
+x assign 10
+y assign 5
+z assign 3
+a assign 2.5
+b assign 1.5
+result assign (x > y) and (y < z * 2) or not (a + b < x / y)
+displ result
+result assign ((x + y * z) > a * b) and (x / y < z)
+displ result
 end

@@ -5,14 +5,14 @@ public class Tables {
     public static final String[] tw = {
             "int", "float", "bool", "do", "else", "false", "for",
             "if", "then", "true", "while", "end", "val", "displ",
-            "enter", "next","not"
+            "enter", "next"
     };
 
     // Таблица ограничителей (исправлена согласно вашим данным)
     public static final String[] tl = {
             "\n", "(", ")", "*", "+", ",", "-", "/", ":", ";",
             "<", "<=", "<>", "=", ">", ">=", "[", "]", "assign",
-            "or", "and"
+            "or", "and","not"
     };
 
     // Таблица чисел
