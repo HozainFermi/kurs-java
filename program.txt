@@ -1,14 +1,7 @@
-int: x, y, z
-float: a, b
-bool: result
-end
-x assign 10
-y assign 5
-z assign 3
-a assign 2.5
-b assign 1.5
-result assign (x > y) and (y < z * 2) or not (a + b < x / y)
-displ result
-result assign ((x + y * z) > a * b) and (x / y < z)
-displ result
+int: bin, oct, dec, hex
+bin assign 1010B      /* двоичное */
+oct assign 123O       /* восьмеричное */  
+dec assign 456        /* десятичное */
+hex assign 1h
+displ bin, oct, dec, hex
 end
