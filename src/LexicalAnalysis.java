@@ -61,22 +61,34 @@ public class LexicalAnalysis {
             if (c == '/' && !endOfFile) {
                 int next = peekChar();
                 if (next == '*') {
+                    // Начало комментария
                     gc(); // пропускаем '*'
                     inComment = true;
-                    while (inComment && !endOfFile) {
+                    boolean commentClosed = false;
+
+                    while (!endOfFile) {
                         c = gc();
                         if (c == '*' && !endOfFile) {
                             next = peekChar();
                             if (next == '/') {
                                 gc(); // пропускаем '/'
+                                commentClosed = true;
                                 inComment = false;
                                 c = gc();
                                 break;
                             }
                         }
                     }
+
+                    // ИСПРАВЛЕНИЕ: проверяем, закрыт ли комментарий
+                    if (!commentClosed && endOfFile) {
+                        er("Лексическая ошибка: незакрытый комментарий");
+                        return;
+                    }
+
                     continue;
                 } else {
+                    // Это оператор деления
                     s.append(c);
                     writeInFile(search(s));
                     s.delete(0, s.length());
@@ -216,6 +228,9 @@ public class LexicalAnalysis {
         s.setLength(0); // очищаем StringBuilder
         s.append(c); // добавляем первую цифру
 
+        boolean hasDecimal = false;
+        boolean hasExponent = false;
+
         c = gc(); // читаем следующий символ
 
         // Читаем число пока идут цифры или допустимые символы
@@ -224,31 +239,39 @@ public class LexicalAnalysis {
                 s.append(c);
                 c = gc();
             } else if (c == '.') {
-                s.append(c);
-                c = gc();
-                // После точки должны быть цифры
-                if (!Character.isDigit(c)) {
-                    er("После точки в числе должны быть цифры");
+                // ПРОВЕРКА: если точка уже была - ошибка
+                if (hasDecimal) {
+                    er("Лексическая ошибка: несколько точек в числе");
                     return;
                 }
-                while (Character.isDigit(c)) {
-                    s.append(c);
-                    c = gc();
-                }
-            } else if (c == 'e' || c == 'E') {
+                hasDecimal = true;
                 s.append(c);
                 c = gc();
+
+                // После точки должна быть хотя бы одна цифра
+                if (!Character.isDigit(c)) {
+                    er("Лексическая ошибка: после точки в числе должны быть цифры");
+                    return;
+                }
+            } else if (c == 'e' || c == 'E') {
+                // ПРОВЕРКА: если экспонента уже была - ошибка
+                if (hasExponent) {
+                    er("Лексическая ошибка: несколько экспонент в числе");
+                    return;
+                }
+                hasExponent = true;
+                s.append(c);
+                c = gc();
+
                 if (c == '+' || c == '-') {
                     s.append(c);
                     c = gc();
                 }
+
+                // После e/E должна быть хотя бы одна цифра
                 if (!Character.isDigit(c)) {
-                    er("После экспоненты должны быть цифры");
+                    er("Лексическая ошибка: после экспоненты в числе должны быть цифры");
                     return;
-                }
-                while (Character.isDigit(c)) {
-                    s.append(c);
-                    c = gc();
                 }
             } else if (Character.isLetter(c)) {
                 // Суффиксы систем счисления

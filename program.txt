@@ -1,7 +1,17 @@
-int: bin, oct, dec, hex
-bin assign 1010B      /* двоичное */
-oct assign 123O       /* восьмеричное */  
-dec assign 456        /* десятичное */
-hex assign 1h
-displ bin, oct, dec, hex
+int: a, b, i, counter /* комментарий */
+float: c, d
+bool: e, f
+a assign 1
+b assign 20
+c assign 0.1
+d assign 123.20e+2
+e assign true
+f assign not e
+if a < b then a assign b+1 else b assign a+1 end
+a assign a-1: a assign a-1: a assign a-1
+for i assign 1 val 5 do a assign a+i
+while counter > 0 do displ 200,a next
+enter a
+enter b
+displ a+2,b
 end

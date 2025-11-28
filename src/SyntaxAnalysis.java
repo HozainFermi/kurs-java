@@ -19,6 +19,7 @@ public class SyntaxAnalysis {
     private final Stack<String> opStack = new Stack<>();
     private final ArrayList<TOP> top = new ArrayList<>();
     private boolean stop = false;
+    private boolean endOfFile = false;
 
     public void analysis(){
         initializeTOP();
@@ -28,36 +29,50 @@ public class SyntaxAnalysis {
 
         gl();
 
-        // Основное тело программы - последовательность описаний и операторов
-        boolean firstElement = true;
+        // Первый элемент
+        if (!(description() || operator())) {
+            er("Синтаксическая ошибка: программа должна начинаться с описания или оператора");
+            return;
+        }
 
-        while (!lex.EQ("end") && !stop) {
-            if (firstElement) {
-                // Первый элемент программы
-                if (!(description() || operator())) {
-                    er("Синтаксическая ошибка: программа должна начинаться с описания или оператора");
-                    return;
-                }
-                firstElement = false;
-            } else {
-                // После первого элемента должен быть : или \n
-                if (lex.EQ(":") || lex.EQ("\n")) {
-                    gl();
+        // Остальные элементы
+        while (!stop) {
+            // Сначала проверяем не конец ли программы
+            if (lex.EQ("end")) {
+                break;
+            }
 
-                    // Следующий элемент (описание или оператор)
-                    if (!lex.EQ("end") && !(description() || operator())) {
-                        er("Синтаксическая ошибка: ожидалось описание или оператор после ':' или перевода строки");
-                    }
-                } else if (!lex.EQ("end")) {
-                    er("Синтаксическая ошибка: ожидался ':' или перевод строки между элементами программы");
+            if (lex.EQ(":") || lex.EQ("\n")) {
+                gl();
+
+                // После разделителя может быть end
+                if (lex.EQ("end")) {
                     break;
                 }
+
+                if (!(description() || operator())) {
+                    er("Синтаксическая ошибка: ожидалось описание или оператор");
+                    return;
+                }
+            } else if (lex.EQ("end")) {
+                break; // end без разделителя - тоже нормально
+            } else if (endOfFile) {
+                er("Синтаксическая ошибка: не найдено ключевое слово 'end'");
+                return;
+            } else {
+                er("Синтаксическая ошибка: ожидался ':' или перевод строки или 'end'");
+                return;
             }
         }
 
+        // Только здесь проверяем наличие end
         if (!lex.EQ("end")) {
             er("Синтаксическая ошибка: не найдено ключевое слово 'end'");
+            return;
         }
+
+        // Если дошли сюда - end найден
+        gl(); // читаем символ после end
 
         if (stop) return;
 
@@ -156,6 +171,7 @@ public class SyntaxAnalysis {
             Identifier id = ti.get(index);
             if(id.isDescribed()) {
                 er("Семантическая ошибка: переменная '" + id.getName() + "' уже описана");
+                return false;
             }
             id.setDescribed(true);
             id.setType(varType);
@@ -184,16 +200,17 @@ public class SyntaxAnalysis {
 
         while(lex.EQ(":") || lex.EQ("\n")) {
             gl();
-            if(!operator()) {
-                er("Синтаксическая ошибка: ожидался оператор после ':' или перевода строки");
+            if(!operator() && !lex.EQ("]")) {
+                //er("Синтаксическая ошибка: ожидался оператор после ':' или перевода строки");
+                er("Синтаксическая ошибка: ожидался ']' для окончания составного оператора");
                 return false;
             }
         }
 
-        if(!lex.EQ("]")) {
-            er("Синтаксическая ошибка: ожидался ']' для окончания составного оператора");
-            return false;
-        }
+//        if(!lex.EQ("]")) {
+//            er("Синтаксическая ошибка: ожидался ']' для окончания составного оператора");
+//            return false;
+//        }
         gl();
 
         return true;
@@ -207,6 +224,7 @@ public class SyntaxAnalysis {
         gl();
 
         if(!lex.EQ("assign")) {
+            er("Синтаксическая ошибка: не найден assign при присваивании");
             return false;
         }
         opStack.push("assign");
@@ -539,7 +557,7 @@ public class SyntaxAnalysis {
                 // Пропускаем пробелы
             }
 
-            if (c == -1) return;
+            if (c == -1) {endOfFile = true; return;}
 
             if ((char) c == '[') {
                 c = bufferedInputStream.read();
@@ -563,8 +581,10 @@ public class SyntaxAnalysis {
     }
 
     private void er(String message) {
-        Main.ui.log(message);
-        stop = true;
+        if(!stop) {
+            Main.ui.log(message);
+            stop = true;
+        }
     }
 
     private String getTypeFromLexeme() {
