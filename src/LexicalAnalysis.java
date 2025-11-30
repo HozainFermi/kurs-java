@@ -80,7 +80,7 @@ public class LexicalAnalysis {
                         }
                     }
 
-                    // ИСПРАВЛЕНИЕ: проверяем, закрыт ли комментарий
+                    // проверяем, закрыт ли комментарий
                     if (!commentClosed && endOfFile) {
                         er("Лексическая ошибка: незакрытый комментарий");
                         return;
@@ -225,21 +225,19 @@ public class LexicalAnalysis {
     }
 
     private void readNumber() {
-        s.setLength(0); // очищаем StringBuilder
-        s.append(c); // добавляем первую цифру
+        s.setLength(0);
+        s.append(c);
 
         boolean hasDecimal = false;
         boolean hasExponent = false;
 
-        c = gc(); // читаем следующий символ
+        c = gc();
 
-        // Читаем число пока идут цифры или допустимые символы
         while (!endOfFile) {
             if (Character.isDigit(c)) {
                 s.append(c);
                 c = gc();
             } else if (c == '.') {
-                // ПРОВЕРКА: если точка уже была - ошибка
                 if (hasDecimal) {
                     er("Лексическая ошибка: несколько точек в числе");
                     return;
@@ -248,13 +246,11 @@ public class LexicalAnalysis {
                 s.append(c);
                 c = gc();
 
-                // После точки должна быть хотя бы одна цифра
                 if (!Character.isDigit(c)) {
                     er("Лексическая ошибка: после точки в числе должны быть цифры");
                     return;
                 }
             } else if (c == 'e' || c == 'E') {
-                // ПРОВЕРКА: если экспонента уже была - ошибка
                 if (hasExponent) {
                     er("Лексическая ошибка: несколько экспонент в числе");
                     return;
@@ -268,22 +264,64 @@ public class LexicalAnalysis {
                     c = gc();
                 }
 
-                // После e/E должна быть хотя бы одна цифра
                 if (!Character.isDigit(c)) {
                     er("Лексическая ошибка: после экспоненты в числе должны быть цифры");
                     return;
                 }
             } else if (Character.isLetter(c)) {
                 // Суффиксы систем счисления
-                if (c == 'B' || c == 'b' || c == 'O' || c == 'o' ||
-                        c == 'D' || c == 'd' || c == 'H' || c == 'h') {
+                int nextChar = peekChar();
+                char next = (char) nextChar;
+
+                // Если после суффикса будет разделитель - это валидное число
+                if (nextChar == -1 || next == ' ' || next == '\n' || next == ':' || next == ',' ||
+                        next == ';' || next == ')' || next == ']' || isDelimiter(next)) {
+
+                    // Добавляем суффикс
                     s.append(c);
+                    String numberStr = s.toString();
+                    String numberWithoutSuffix = numberStr.substring(0, numberStr.length() - 1);
+                    char suffix = Character.toUpperCase(numberStr.charAt(numberStr.length() - 1));
+
+                    // Проверяем соответствие системы счисления
+                    boolean isValid = true;
+                    switch (suffix) {
+                        case 'B':
+                            // Двоичная - только 0 и 1
+                            isValid = numberWithoutSuffix.matches("[01]+");
+                            break;
+                        case 'O':
+                            // Восьмеричная - только 0-7
+                            isValid = numberWithoutSuffix.matches("[0-7]+");
+                            break;
+                        case 'D':
+                            // Десятичная - только 0-9
+                            isValid = numberWithoutSuffix.matches("[0-9]+");
+                            break;
+                        case 'H':
+                            // Шестнадцатеричная - только 0-9, A-F
+                            isValid = numberWithoutSuffix.toUpperCase().matches("[0-9A-F]+");
+                            break;
+                        default:
+                            // Неизвестный суффикс
+                            er("Лексическая ошибка: неизвестный суффикс системы счисления '" + suffix + "'");
+                            return;
+                    }
+
+                    if (!isValid) {
+                        er("Лексическая ошибка: число не соответствует системе счисления '" + suffix + "'");
+                        return;
+                    }
+
+                    // Число валидно - записываем
                     writeInFile(search(s));
                     s.delete(0, s.length());
                     c = gc();
                     return;
                 } else {
-                    break; // недопустимый символ
+                    // Если после суффикса НЕ разделитель - продолжаем читать как число
+                    s.append(c);
+                    c = gc();
                 }
             } else {
                 break; // не числовой символ
@@ -351,4 +389,5 @@ public class LexicalAnalysis {
                 c == ')' || c == '[' || c == ']' || c == ':' || c == ';' ||
                 c == ',' || c == '=' || c == '<' || c == '>';
     }
+
 }
