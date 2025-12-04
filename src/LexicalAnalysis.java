@@ -154,7 +154,7 @@ public class LexicalAnalysis {
             }
 
             // Числа
-            if (Character.isDigit(c)) {
+            if (Character.isDigit(c) || c=='.') {
                 readNumber();
                 continue;
             }
@@ -237,6 +237,19 @@ public class LexicalAnalysis {
             if (Character.isDigit(c)) {
                 s.append(c);
                 c = gc();
+
+                // конец числа
+                if (c == -1 || c == ' ' || c == '\n' || c == ':' || c == ',' ||
+                        c == ';' || c == ')' || c == ']' || isDelimiter(c)) {
+
+                    String numberStr = s.toString();
+                    boolean isValid = numberStr.matches("[0-9]+");
+                    if (!isValid) {
+                        er("Лексическая ошибка: число не соответствует системе счисления '" + "D" + "'");
+                        return;
+                    }
+                }
+
             } else if (c == '.') {
                 if (hasDecimal) {
                     er("Лексическая ошибка: несколько точек в числе");
@@ -285,6 +298,15 @@ public class LexicalAnalysis {
 
                     // Проверяем соответствие системы счисления
                     boolean isValid = true;
+
+                    if (Character.isDigit(suffix)){
+                        isValid = numberStr.matches("[0-9]+");
+                    }
+                    if (!isValid) {
+                        er("Лексическая ошибка: число не соответствует системе счисления '" + "D" + "'");
+                        return;
+                    }
+
                     switch (suffix) {
                         case 'B':
                             // Двоичная - только 0 и 1
