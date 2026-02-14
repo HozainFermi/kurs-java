@@ -238,17 +238,7 @@ public class LexicalAnalysis {
                 s.append(c);
                 c = gc();
 
-                // конец числа
-                if (c == -1 || c == ' ' || c == '\n' || c == ':' || c == ',' ||
-                        c == ';' || c == ')' || c == ']' || isDelimiter(c)) {
 
-                    String numberStr = s.toString();
-                    boolean isValid = numberStr.matches("[0-9]+");
-                    if (!isValid) {
-                        er("Лексическая ошибка: число не соответствует системе счисления '" + "D" + "'");
-                        return;
-                    }
-                }
 
             } else if (c == '.') {
                 if (hasDecimal) {
@@ -346,6 +336,15 @@ public class LexicalAnalysis {
                     c = gc();
                 }
             } else {
+                // Достигли конца числа (не числовой символ)
+                // Проверяем целые числа без суффикса
+                if (!hasDecimal && !hasExponent) {
+                    String numberStr = s.toString();
+                    if (!numberStr.matches("[0-9]+")) {
+                        er("Лексическая ошибка: десятичное целое число должно содержать только цифры 0-9");
+                        return;
+                    }
+                }
                 break; // не числовой символ
             }
         }

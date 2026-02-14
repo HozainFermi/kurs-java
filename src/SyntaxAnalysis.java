@@ -646,6 +646,7 @@ public class SyntaxAnalysis {
                     topOp.getType1().equals(type1) &&
                     topOp.getType2().equals(type2)) {
                 opStack.push(topOp.getResultType());
+
                 return;
             }
         }
